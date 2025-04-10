@@ -1,3 +1,46 @@
+#include <iostream>
+#include <vector>
+#include <chrono>
+#include <random>
+#include <cmath>
+#include <dnnl.hpp>
+#include <mkl.h>
+
+using namespace dnnl;
+
+// ---- Convert float32 <-> bfloat16 ----
+inline uint16_t f32_to_bf16(float f) {
+    uint32_t as_int = *reinterpret_cast<uint32_t*>(&f);
+    return static_cast<uint16_t>(as_int >> 16);
+}
+
+inline float bf16_to_f32(uint16_t bf) {
+    uint32_t tmp = static_cast<uint32_t>(bf) << 16;
+    return *reinterpret_cast<float*>(&tmp);
+}
+
+void convert_f32_to_bf16(const float* src, uint16_t* dst, size_t len) {
+    for (size_t i = 0; i < len; ++i)
+        dst[i] = f32_to_bf16(src[i]);
+}
+
+void convert_bf16_to_f32(const uint16_t* src, float* dst, size_t len) {
+    for (size_t i = 0; i < len; ++i)
+        dst[i] = bf16_to_f32(src[i]);
+}
+
+void convert_f32_to_f32(const float* src, float* dst, size_t len) {
+    for (size_t i = 0; i < len; ++i)
+        dst[i] = src[i];
+}
+
+// ---- GEMM Config ----
+constexpr int M = 3;
+//constexpr int K = 512;
+constexpr int K = 1024;
+constexpr int N = 80;
+
+
 int main() {
     std::cout << "Benchmarking GEMM: " << M << "x" << K << " x " << K << "x" << N << "\n";
 
