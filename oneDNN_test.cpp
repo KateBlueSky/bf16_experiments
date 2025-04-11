@@ -5,41 +5,69 @@
 #include <cmath>
 #include <dnnl.hpp>
 #include <mkl.h>
+#include <immintrin.h>
+#include <cstring>
+
+//#define DO_NOT_USE_REORDER
+
 
 using namespace dnnl;
 
-// ---- Convert float32 <-> bfloat16 ----
-inline uint16_t f32_to_bf16(float f) {
-    uint32_t as_int = *reinterpret_cast<uint32_t*>(&f);
-    return static_cast<uint16_t>(as_int >> 16);
+void convert_bf16_to_f32(const uint16_t* src, float* dst, size_t size) {
+    size_t i = 0;
+
+#ifdef __AVX512F__
+    
+    //std::cout << "using __AVX512F__\n";
+    for (; i + 15 < size; i += 16) {
+        __m256i bf16_vals = _mm256_loadu_si256((const __m256i*)&src[i]);
+
+        // Zero extend to 32 bits by shifting left 16 bits
+        __m512i expanded = _mm512_slli_epi32(_mm512_cvtepu16_epi32(bf16_vals), 16);
+
+        // Bitcast to float
+        __m512 f32_vals = _mm512_castsi512_ps(expanded);
+
+        _mm512_storeu_ps(&dst[i], f32_vals);
+    }
+#endif
+
+    // Scalar fallback
+    for (; i < size; ++i) {
+        uint32_t val = static_cast<uint32_t>(src[i]) << 16;
+        std::memcpy(&dst[i], &val, sizeof(float));
+    }
 }
 
-inline float bf16_to_f32(uint16_t bf) {
-    uint32_t tmp = static_cast<uint32_t>(bf) << 16;
-    return *reinterpret_cast<float*>(&tmp);
+void convert_f32_to_bf16(const float* src, uint16_t* dst, size_t size) {
+    size_t i = 0;
+
+    // Vectorized conversion using AVX512-BF16
+#ifdef __AVX512BF16__
+    for (; i + 15 < size; i += 16) {
+        __m512 f = _mm512_loadu_ps(&src[i]);
+        __m256bh bf16 = _mm512_cvtneps_pbh(f);
+        _mm256_storeu_si256((__m256i*)(&dst[i]), (__m256i)bf16);
+    }
+#endif
+
+    // Scalar fallback for remaining values
+    for (; i < size; ++i) {
+        uint32_t val;
+        memcpy(&val, &src[i], sizeof(float));
+        dst[i] = static_cast<uint16_t>(val >> 16);
+    }
 }
 
-void convert_f32_to_bf16(const float* src, uint16_t* dst, size_t len) {
-    for (size_t i = 0; i < len; ++i)
-        dst[i] = f32_to_bf16(src[i]);
-}
 
-void convert_bf16_to_f32(const uint16_t* src, float* dst, size_t len) {
-    for (size_t i = 0; i < len; ++i)
-        dst[i] = bf16_to_f32(src[i]);
-}
 
-void convert_f32_to_f32(const float* src, float* dst, size_t len) {
-    for (size_t i = 0; i < len; ++i)
-        dst[i] = src[i];
-}
+
 
 // ---- GEMM Config ----
-constexpr int M = 3;
+constexpr int M = 1024;
 //constexpr int K = 512;
-constexpr int K = 1024;
-constexpr int N = 80;
-
+constexpr int K = 20;
+constexpr int N = 20;
 
 int main() {
     std::cout << "Benchmarking GEMM: " << M << "x" << K << " x " << K << "x" << N << "\n";
@@ -56,7 +84,7 @@ int main() {
     {
         std::fill(C_mkl.begin(), C_mkl.end(), 0.0f);
         
-        std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
+        //std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
         //convert_f32_to_bf16(A.data(), A_bf.data(), M * K);
         //convert_f32_to_bf16(B.data(), B_bf.data(), K * N);
   
@@ -80,10 +108,10 @@ int main() {
     // === oneDNN GEMM (bf16) ===
     
     
-    #if (1==2)
+    #ifdef DO_NOT_USE_REORDER
     {
 
-
+        std::cout << "Using intrinsics to do the conversion from float32 to bfloat16.\n";
        
 
         //auto start = std::chrono::high_resolution_clock::now();
@@ -94,7 +122,7 @@ int main() {
        
         std::vector<uint16_t> A_bf(M * K), B_bf(K * N), C_bf(M * N);
          
-        //auto start = std::chrono::high_resolution_clock::now();
+        auto start = std::chrono::high_resolution_clock::now();
         convert_f32_to_bf16(A.data(), A_bf.data(), M * K);
         convert_f32_to_bf16(B.data(), B_bf.data(), K * N);
 
@@ -116,7 +144,7 @@ int main() {
         auto matmul_pd = matmul::primitive_desc(eng, a_md, b_md, c_md);
         auto matmul_prim = matmul(matmul_pd);
 
-        auto start = std::chrono::high_resolution_clock::now();
+        //auto start = std::chrono::high_resolution_clock::now();
 
         matmul_prim.execute(s, {
             {DNNL_ARG_SRC, A_mem},
@@ -124,21 +152,24 @@ int main() {
             {DNNL_ARG_DST, C_mem}
         });
 
+
+        convert_bf16_to_f32(C_bf.data(), C_dnnl.data(), M * N);
         s.wait();
+        
+
         auto end = std::chrono::high_resolution_clock::now();
         double elapsed = std::chrono::duration<double>(end - start).count();
         std::cout << "oneDNN bf16 GEMM time: " << elapsed << " sec\n";
-
-        // Optional: Convert result back for verification
-        convert_bf16_to_f32(C_bf.data(), C_dnnl.data(), M * N);
     }
     #else
+
+    std::cout << "Using reorder to do the conversion from float32 to bfloat16.\n";	
 
     // === oneDNN GEMM (bf16 with reorder) ===
     {
         std::vector<float> A_bf(M * K), B_bf(K * N), C_bf(M * N);
-        convert_f32_to_f32(A.data(), A_bf.data(), M * K);
-        convert_f32_to_f32(B.data(), B_bf.data(), K * N);
+        A_bf = A;
+        B_bf = B;
 
         engine eng(engine::kind::cpu, 0);
         stream s(eng);
@@ -206,7 +237,7 @@ int main() {
 
        
         // Optional: Convert result back to float32 for validation
-        convert_f32_to_f32(C_bf.data(), C_dnnl.data(), M * N);
+        C_dnnl = C_bf;
     }	
     #endif 
 
@@ -220,4 +251,3 @@ int main() {
     }
     std::cout << "Max diff (MKL vs oneDNN): " << max_diff << "\n";
 }
-
