@@ -65,6 +65,6 @@ icpx -O2 -std=c++17 \
 
 ---
 
-Let me know if you'd like a badge, chart, or sample output section added!
+
 
 
