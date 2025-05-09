@@ -3,15 +3,10 @@
 #include <chrono>
 #include <random>
 #include <cmath>
-#include <dnnl.hpp>
 #include <mkl.h>
 #include <immintrin.h>
 #include <cstring>
 
-//#define DO_NOT_USE_REORDER
-
-
-using namespace dnnl;
 
 void convert_bf16_to_f32(const uint16_t* src, float* dst, size_t size) {
     size_t i = 0;
