@@ -76,7 +76,7 @@ Benchmark the `float32 → bfloat16` conversion using intrinsics + cblas_gemm_bf
 ```bash
 icpx -O2 -std=c++17   -mavx512f -mavx512bw -mamx-tile -mamx-bf16 -mavx512bf16 -march=native \
 -I${MKLROOT}/include -L${MKLROOT}/lib   test_mkl_bf16.cpp -o test_gemm   \
--ldnnl -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -ldl
+-lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -ldl
 ```
 ---
 
