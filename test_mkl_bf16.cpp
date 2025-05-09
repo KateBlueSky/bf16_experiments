@@ -65,14 +65,18 @@ void convert_f32_to_bf16(const float* src, uint16_t* dst, size_t size) {
 
 // ---- GEMM Config ----
 //constexpr int M = 256;
-constexpr int M = 256;
-constexpr int K = 512;
-constexpr int N = 20;
+//constexpr int M = 512;
+//constexpr int K = 512;
+//constexpr int N = 20;
 //constexpr int K = 256;
 //constexpr int N = 256;
 
-int main() {
-    std::cout << "Benchmarking GEMM: " << M << "x" << K << " x " << K << "x" << N << "\n";
+int main(int argc, char* argv[]) {
+    //std::cout << "Benchmarking GEMM: " << M << "x" << K << " x " << K << "x" << N << "\n";
+
+    int M = std::atoi(argv[1]);
+    int K = std::atoi(argv[2]);
+    int N = std::atoi(argv[3]);
 
     // Allocate matrices
     std::vector<float> A(M * K), B(K * N), C_mkl(M * N), C_dnnl(M * N);
@@ -89,9 +93,11 @@ int main() {
 
 	mkl_set_num_threads_local(1);
 
-        for (int i = 0; i < 200; i++)
+        for (int i = 0; i < 5; i++)
 	{
-        std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
+
+        
+        //std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
         auto start_f32 = std::chrono::high_resolution_clock::now();
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,          
                     M, N, K, 
@@ -106,6 +112,8 @@ int main() {
         //std::cout << "MKL float32 GEMM time: " << elapsed_f32 << " sec\n"; 
 
         auto start = std::chrono::high_resolution_clock::now();
+        
+        std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
         convert_f32_to_bf16(A.data(), A_bf.data(), M * K);
         convert_f32_to_bf16(B.data(), B_bf.data(), K * N);
   
@@ -123,8 +131,8 @@ int main() {
 
         auto end = std::chrono::high_resolution_clock::now();
         auto elapsed_bf16 = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-        std::cout << M << "," << N << "," << K << "," << elapsed_bf16.count() << "," << elapsed_f32.count() << std::endl; 
-
+        std::cout << M << "," << K << "," << N << "," << elapsed_bf16.count() << "," << elapsed_f32.count() << std::endl; 
+	
 	//std::cout << "MKL float16 GEMM time: " << elapsed << " sec\n";
 	}
     }
