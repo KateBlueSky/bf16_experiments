@@ -53,6 +53,34 @@ icpx -O2 -std=c++17 \
 
 ---
 
+## 📄 `bf16_conversion_test.cpp`
+
+Benchmark the raw performance of `float32 → bfloat16` conversion using intrinsics (e.g., `vcvtneps2bf16`).
+
+### 🔧 Compile:
+
+```bash
+icpx -O2 -std=c++17 \
+  -mavx512f -mavx512bw -mamx-tile -mamx-bf16 \
+  bf16_conversion_test.cpp -o bf16_conversion_test \
+  -lpthread -ldl
+```
+
+---
+## 📄 `test_mkl_bf16.cpp`
+
+Benchmark the `float32 → bfloat16` conversion using intrinsics + cblas_gemm_bf16bf16f32 vs a single cblas_sgemm call.
+
+### 🔧 Compile:
+
+```bash
+icpx -O2 -std=c++17   -mavx512f -mavx512bw -mamx-tile -mamx-bf16 -mavx512bf16 -march=native \
+-I${MKLROOT}/include -L${MKLROOT}/lib   test_mkl_bf16.cpp -o test_gemm   \
+-ldnnl -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread -ldl
+```
+---
+
+
 ## 🚩 Compiler Flags Explained
 
 | Flag              | Description |
