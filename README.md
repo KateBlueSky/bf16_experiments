@@ -53,20 +53,6 @@ icpx -O2 -std=c++17 \
 
 ---
 
-## 📄 `bf16_conversion_test.cpp`
-
-Benchmark the raw performance of `float32 → bfloat16` conversion using intrinsics (e.g., `vcvtneps2bf16`).
-
-### 🔧 Compile:
-
-```bash
-icpx -O2 -std=c++17 \
-  -mavx512f -mavx512bw -mamx-tile -mamx-bf16 \
-  bf16_conversion_test.cpp -o bf16_conversion_test \
-  -lpthread -ldl
-```
-
----
 ## 📄 `test_mkl_bf16.cpp`
 
 Benchmark the `float32 → bfloat16` conversion using intrinsics + cblas_gemm_bf16bf16f32 vs a single cblas_sgemm call.
