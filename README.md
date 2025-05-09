@@ -70,6 +70,7 @@ icpx -O2 -std=c++17 \
 ## 📄 `test_mkl_bf16.cpp`
 
 Benchmark the `float32 → bfloat16` conversion using intrinsics + cblas_gemm_bf16bf16f32 vs a single cblas_sgemm call.
+The run_test.sh can be used to test a range of values for M N K
 
 ### 🔧 Compile:
 
