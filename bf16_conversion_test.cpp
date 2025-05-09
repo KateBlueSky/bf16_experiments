@@ -6,6 +6,16 @@
 #include <cstdint>
 #include <cstring>
 
+//Guarded by #ifdef __AVX512BF16__: Only compiles this block if your CPU supports AVX-512 BF16 instructions.
+//Loop processes 16 floats at a time:
+//_mm512_loadu_ps: Loads 16 floats (512 bits) from src into a vector register.
+//_mm512_cvtneps_pbh: Converts the 16 floats to 16 bfloat16 values using nearest-even rounding.
+//_mm256_storeu_si256: Stores the result (as 16 × 16-bit values) into dst.
+
+
+
+
+
 void convert_f32_to_bf16(const float* src, uint16_t* dst, size_t size) {
     size_t i = 0;
 
