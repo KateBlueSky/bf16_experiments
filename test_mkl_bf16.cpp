@@ -108,9 +108,11 @@ int main(int argc, char* argv[]) {
 
         auto start = std::chrono::high_resolution_clock::now();
         
-        std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
-        convert_f32_to_bf16(A.data(), A_bf.data(), M * K);
-        convert_f32_to_bf16(B.data(), B_bf.data(), K * N);
+        //std::vector<uint16_t> A_bf(M * K), B_bf(K * N);
+        uint16_t A_bf[M * K];
+        uint16_t B_bf[K * N];
+        convert_f32_to_bf16(A.data(), A_bf, M * K);
+        convert_f32_to_bf16(B.data(), B_bf, K * N);
   
 
         //auto start = std::chrono::high_resolution_clock::now();
@@ -119,8 +121,8 @@ int main(int argc, char* argv[]) {
         cblas_gemm_bf16bf16f32(CblasRowMajor, CblasNoTrans, CblasNoTrans,          
                     M, N, K, 
                     1.0f,
-                    A_bf.data(), K,
-                    B_bf.data(), N,
+                    A_bf, K,
+                    B_bf, N,
                     0.0f,
                     C_mkl.data(), N);
 
